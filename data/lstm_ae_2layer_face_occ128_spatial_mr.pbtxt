@@ -1,0 +1,359 @@
+name: "lstm_autoencoder"
+checkpoint_dir: "./models"
+print_after: 100
+display_after: 0
+validate_after: 10000
+save_after: 1000
+max_iters: 100000
+dec_seq_length: 8
+pre_seq_length: 0
+future_seq_length: 0
+binary_data: true
+lstm {
+    name: "lstm_1_enc"
+    num_hid: 2048
+    has_input: true
+    has_spatial: true
+    image_dims: 16384
+    image_side: 128
+    input_dims: 1024
+    input_patch_side: 32
+    w_dense {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_diag {
+      init_type: UNIFORM
+      scale: 0.1
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    b {
+      init_type: LSTM_SPATIAL_BIAS
+      input_gate_bias: 0
+      forget_gate_bias: 5
+      input_bias: 0
+      output_gate_bias: 0
+      epsilon: 0.000005
+      momentum: 0.9
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_input {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+}
+
+lstm {
+    name: "lstm_2_enc"
+    num_hid: 2048
+    has_input: true
+    image_side: 128
+    input_dims: 2048
+    w_dense {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_diag {
+      init_type: UNIFORM
+      scale: 0.1
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    b {
+      init_type: LSTM_SPATIAL_BIAS
+      input_gate_bias: 0
+      forget_gate_bias: 5
+      input_bias: 0
+      output_gate_bias: 0
+      epsilon: 0.000005
+      momentum: 0.9
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_input {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+}
+
+lstm_dec {
+    name: "lstm_1_dec"
+    num_hid: 2048
+    image_side: 128
+    w_dense {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_diag {
+      init_type: UNIFORM
+      scale: 0.1
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    b {
+      init_type: LSTM_BIAS
+      input_gate_bias: 0
+      forget_gate_bias: 5
+      input_bias: 0
+      output_gate_bias: 0
+      epsilon: 0.000005
+      momentum: 0.9
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+}
+
+lstm_dec {
+    name: "lstm_2_dec"
+    num_hid: 2048
+    has_input: true
+    has_output: true
+    image_dims: 16384
+    image_side: 128
+    input_dims: 2048
+    output_dims: 16384
+    w_dense {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_diag {
+      init_type: UNIFORM
+      scale: 0.1
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    b {
+      init_type: LSTM_BIAS
+      input_gate_bias: 0
+      forget_gate_bias: 5
+      input_bias: 0
+      output_gate_bias: 0
+      epsilon: 0.000005
+      momentum: 0.9
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_input {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    w_output {
+      init_type: UNIFORM
+      scale: 0.01
+      epsilon: 0.000005
+      momentum: 0.9
+      l2_decay: 0.0001
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+    b_output {
+      init_type: CONSTANT
+      scale: 0.0
+      epsilon: 0.000005
+      momentum: 0.9
+      gradient_clip: 0.00001
+      eps_decay_factor: 0.9
+      eps_decay_after: 10000
+      rms_prop: true
+    }
+}
+
+lstm_pre {
+  name: "lstm_1_pre"
+  num_hid: 2048
+  w_dense {
+    init_type: UNIFORM
+    scale: 0.01
+    epsilon: 5e-06
+    momentum: 0.9
+    l2_decay: 0.0001
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  w_diag {
+    init_type: UNIFORM
+    scale: 0.1
+    epsilon: 5e-06
+    momentum: 0.9
+    l2_decay: 0.0001
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  b {
+    init_type: LSTM_BIAS
+    epsilon: 5e-06
+    momentum: 0.9
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    input_gate_bias: 0.0
+    forget_gate_bias: 5.0
+    input_bias: 0.0
+    output_gate_bias: 0.0
+    rms_prop: true
+  }
+  image_side: 128
+}
+
+lstm_pre {
+  name: "lstm_2_pre"
+  num_hid: 2048
+  w_dense {
+    init_type: UNIFORM
+    scale: 0.01
+    epsilon: 5e-06
+    momentum: 0.9
+    l2_decay: 0.0001
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  w_diag {
+    init_type: UNIFORM
+    scale: 0.1
+    epsilon: 5e-06
+    momentum: 0.9
+    l2_decay: 0.0001
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  b {
+    init_type: LSTM_BIAS
+    epsilon: 5e-06
+    momentum: 0.9
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    input_gate_bias: 0.0
+    forget_gate_bias: 5.0
+    input_bias: 0.0
+    output_gate_bias: 0.0
+    rms_prop: true
+  }
+  w_input {
+    init_type: UNIFORM
+    scale: 0.01
+    epsilon: 5e-06
+    momentum: 0.9
+    l2_decay: 0.0001
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  w_output {
+    init_type: UNIFORM
+    scale: 0.01
+    epsilon: 5e-06
+    momentum: 0.9
+    l2_decay: 0.0001
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  b_output {
+    init_type: CONSTANT
+    scale: 0.0
+    epsilon: 5e-06
+    momentum: 0.9
+    gradient_clip: 1e-05
+    eps_decay_factor: 0.9
+    eps_decay_after: 10000
+    rms_prop: true
+  }
+  has_input: true
+  has_output: true
+  input_dims: 2048
+  output_dims: 16384
+  image_dims: 16384
+  image_side: 128
+}

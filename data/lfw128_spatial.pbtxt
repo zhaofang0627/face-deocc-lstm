@@ -1,0 +1,11 @@
+dataset_type: LFW128
+data_file : "./dataset/LFW/lfw_testing_occ_21.hdf5"
+dataset_name: "occ_data"
+target_name: "data"
+labels_name: "labels"
+files_name: "file_names"
+row_length: 2
+col_length: 2
+stride: 64
+batch_size: 256
+image_size: 128

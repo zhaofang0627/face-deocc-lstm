@@ -1,0 +1,11 @@
+dataset_type: OCC_FACE_128
+data_file : "./dataset/occface128.hdf5"
+dataset_name: "occ_data"
+target_name: "data"
+labels_name: "label_vec"
+row_length: 2
+col_length: 2
+stride: 64
+stride_dec: 16
+batch_size: 256
+image_size: 128

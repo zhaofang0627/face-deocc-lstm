@@ -1,0 +1,365 @@
+#ifndef _CUDAMAT_CUH
+#define _CUDAMAT_CUH
+#define ERROR_INCOMPATIBLE_DIMENSIONS -1
+#define CUBLAS_ERROR -2
+#define CUDA_ERROR -3
+#define VIEW_ERROR -4
+#define ERROR_TRANSPOSED -5
+#define ERROR_GENERIC -6
+#define ERROR_TRANSPOSEDNESS -7
+#define ERROR_NOT_ON_DEVICE -8
+#define ERROR_UNSUPPORTED -9
+#define BEFORE_CALL_CUBLAS_ERROR -10
+#define BEFORE_CALL_CUDA_ERROR -11
+
+#ifndef DIVUP
+#define DIVUP(x, y) (((x) + (y) - 1) / (y))
+#endif
+#ifndef MIN
+#define MIN(x,y) ((x < y) ? x : y)
+#endif
+#ifndef MAX
+#define MAX(x,y) ((x > y) ? x : y)
+#endif
+
+#include "cublas.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+struct cudamat {
+    float* data_host;
+    float* data_device;
+    int on_device;
+    int on_host;
+    int size[2];
+    int is_trans; // 0 or 1
+    int owns_data;
+    cudaTextureObject_t tex_obj;
+};
+struct cudamat_double {
+    double* data_host;
+    double* data_device;
+    int on_device;
+    int on_host;
+    int size[2];
+    int is_trans; // 0 or 1
+    int owns_data;
+    cudaTextureObject_t tex_obj;
+};
+
+struct rnd_struct {
+    unsigned int* dev_mults;
+    unsigned long long* dev_words;
+};
+// bounding boxes.
+struct bbox {
+    int *seg;   // array of length 'size' + 1.
+    int *labels;  // labels[seg[i]:seg[i+1]] are the labels for image i.
+    int *boxes;   // boxes[4*seg[i]:4*seg[i+1]] are bounding boxes for image i.
+};
+
+struct cudamat_bbox {
+    bbox data_host;
+    bbox data_device;
+    int on_device;
+    int on_host;
+    int size;  // Number of images in the (mini)batch.
+    int numboxes;  // Total number of boxes over all images in the (mini)batch.
+};
+
+
+struct sparse_data {
+  int *indices, *indptr;
+  float* data;
+};
+
+struct cudamat_sparse {
+    sparse_data data_host;
+    sparse_data data_device;
+    int on_device;
+    int on_host;
+    int size[2];
+    int is_trans; // 0 or 1
+    int owns_data;
+    int nnz;
+};
+
+typedef struct Shape4D {
+  int shape[4];
+} Shape4D;
+
+typedef struct ConvDesc {
+  int num_input_channels;
+  int num_output_channels;
+  int kernel_size_y;
+  int kernel_size_x;
+  int kernel_size_t;
+  int stride_y;
+  int stride_x;
+  int stride_t;
+  int padding_y;
+  int padding_x;
+  int padding_t;
+  int input_channel_begin;
+  int input_channel_end;
+  int output_channel_begin;
+  int output_channel_end;
+  int num_groups;
+} ConvDesc;
+
+const char* get_last_cuda_error();
+int cuda_record_event(cudaEvent_t* t);
+int cuda_synchronize_event(cudaEvent_t* t);
+int cuda_create_event(cudaEvent_t* t);
+int cublas_init();
+int cublas_shutdown();
+bool cuda_is_fermi(int deviceId);
+int cuda_set_device(int deviceId);
+int cuda_set_P2P(int gpu1, int gpu2);
+int init_random(rnd_struct* rnd_state, int seed);
+int get_rnd_state(rnd_struct* rnd_state, unsigned long long* host_words_out, int *size_out);
+int get_leading_dimension(cudamat* mat);
+int get_nonleading_dimension(cudamat* mat);
+void set_transpose(cudamat* mat, int is_trans);
+void cuda_sync_threads();
+int allocate_device_memory(cudamat* mat);
+int allocate_device_memory_bbox(cudamat_bbox* mat);
+int allocate_device_memory_sparse(cudamat_sparse* mat);
+int destroy_tex(cudamat* mat);
+int write_at(cudamat* mat, int row, int col, float val);
+float read_from(cudamat* mat, int row, int col, int* err_code);
+int copy_to_host(cudamat* mat);
+int copy_to_host_slice(cudamat* mat, size_t start, size_t end);
+int copy_bbox_to_host(cudamat_bbox* mat);
+int copy_to_device(cudamat* mat);
+int copy_to_device_slice(cudamat* mat, size_t start, size_t end);
+int copy_bbox_to_device(cudamat_bbox* mat);
+int copy_sparse_to_device(cudamat_sparse* mat);
+int copy_on_device(cudamat* mat1, cudamat* mat2);
+int copy_on_device_p2p_async(cudamat* src, cudamat* dst, int src_dev, int dst_dev);
+int get_row_slice(cudamat* source, cudamat* target, unsigned int start, unsigned int end);
+int set_row_slice(cudamat* source, cudamat* target, unsigned int start, unsigned int end);
+int copy_transpose(cudamat* source, cudamat* target);
+int copy_transpose_big_matrix(cudamat* source, cudamat* target);
+int free_device_memory(cudamat* mat);
+int free_device_memory_bbox(cudamat_bbox* mat);
+int set_shape(cudamat* mat, unsigned int m, unsigned int n);
+int set_shape4d(Shape4D* shape, unsigned int s1, unsigned int s2, unsigned s3, unsigned s4);
+int reshape(cudamat* mat, int m, int n);
+int get_slice(cudamat* source, cudamat* target, unsigned int first_col, unsigned int last_col);
+int get_vector_slice(cudamat* source, cudamat* target, unsigned int first_ind, unsigned int last_ind);
+void init_from_array(cudamat* mat, float* data, int m, int n);
+void init_from_sparse_array(cudamat_sparse* mat, float* data, int* indices, int* indptr, int m, int n, int nnz);
+void set_on_device(cudamat* mat);
+int init_empty(cudamat* mat, int m, int n);
+int fill_with_rand(rnd_struct* rnd_state, cudamat* mat);
+int fill_with_randn(rnd_struct* rnd_state, cudamat* mat);
+int sample_bernoulli(rnd_struct* rnd_state, cudamat* mat, cudamat* target);
+int sample_bernoulli_tanh(rnd_struct* rnd_state, cudamat* mat, cudamat* target);
+int sample_poisson(rnd_struct* rnd_state, cudamat* mat, cudamat* target);
+int sample_gaussian(rnd_struct* rnd_state, cudamat* mat, cudamat* target, float mult);
+int sample_vmf(rnd_struct* rnd_state, cudamat* kappa, cudamat* target, int num_dims, float tiny);
+int perturb_energy(rnd_struct* rnd_state, cudamat* mat, cudamat* target);
+int perturb_prob(rnd_struct* rnd_state, cudamat* mat, cudamat* target);
+int dropout(rnd_struct* rnd_state, cudamat* mat, float dropprob, float val, float scale);
+int gaussian_dropout(rnd_struct* rnd_state, cudamat* mat, float scale);
+int add_col_vec(cudamat* mat, cudamat* vec, cudamat* target);
+int add_col_mult(cudamat* mat, cudamat* vec, cudamat* target, float mult);
+int add_to_each_pixel(cudamat* mat1, cudamat* mat2, cudamat* target, float mult);
+int mult_diagonal_scalar(cudamat* mat, float val, cudamat* target);
+int add_diagonal_scalar(cudamat* mat, float val, cudamat* target);
+int mult_diagonal(cudamat* mat, cudamat* vec, cudamat* target);
+int add_diagonal(cudamat* mat, cudamat* vec, cudamat* target);
+int add_row_mult(cudamat* mat, cudamat* vec, cudamat* target, float mult);
+int add_row_vec(cudamat* mat, cudamat* vec, cudamat* target);
+int mult_by_col_vec(cudamat* mat, cudamat* vec, cudamat* target);
+int mult_by_row_vec(cudamat* mat, cudamat* vec, cudamat* target, float scale_targets);
+int div_by_col_vec(cudamat* mat, cudamat* vec, cudamat* target);
+int div_by_row_vec(cudamat* mat, cudamat* vec, cudamat* target);
+int less_than_eq(cudamat* mat1, cudamat* mat2, cudamat* target);
+int less_than(cudamat* mat1, cudamat* mat2, cudamat* target);
+int less_than_eq_scalar(cudamat* mat, float val, cudamat* target);
+int less_than_scalar(cudamat* mat, float val, cudamat* target);
+int greater_than_eq(cudamat* mat1, cudamat* mat2, cudamat* target);
+int greater_than(cudamat* mat1, cudamat* mat2, cudamat* target);
+int upper_bound(cudamat* mat1, cudamat* mat2, cudamat* target);
+int lower_bound(cudamat* mat1, cudamat* mat2, cudamat* target);
+int greater_than_eq_scalar(cudamat* mat, float val, cudamat* target);
+int greater_than_scalar(cudamat* mat, float val, cudamat* target);
+int upper_bound_scalar(cudamat* mat, float val, cudamat* target);
+int lower_bound_scalar(cudamat* mat, float val, cudamat* target);
+int upper_bound_mod_scalar(cudamat* mat, float val, cudamat* target);
+int max_by_axis(cudamat* mat, cudamat* target, int axis);
+int choose_max_and_accumulate(cudamat* mat, cudamat* acc);
+int choose_max_by_axis(cudamat* mat, cudamat* target, int axis);
+int argmax_by_axis(cudamat* mat, cudamat* target, int axis);
+int sqsum_by_axis(cudamat* mat, cudamat* target, int axis, float mult, float p);
+int sum_by_axis(cudamat* mat, cudamat* target, int axis, float mult, float p);
+float sum_all(cudamat* mat, cudamat* temp, int* err_code);
+int normlimit_by_axis(cudamat* mat, cudamat* target, int axis, float norm, int constraint);
+int norm_bprop_rowwise(cudamat* deriv, cudamat* input, cudamat* target);
+int normalize_by_axis(cudamat* mat, cudamat* target, int axis);
+int sign(cudamat* mat, cudamat* target);
+int apply_cos(cudamat* mat, cudamat* target);
+int apply_sin(cudamat* mat, cudamat* target);
+int apply_sigmoid(cudamat* mat, cudamat* target);
+int apply_tanh(cudamat* mat, cudamat* target);
+int apply_abs(cudamat* mat, cudamat* target);
+int apply_log_1_plus_exp(cudamat* mat, cudamat* target);
+int apply_relu_squash(cudamat* mat, cudamat* target, float lambda);
+int apply_log(cudamat* mat, cudamat* target, float tiny);
+int apply_exp(cudamat* mat, cudamat* target);
+int apply_ceil(cudamat* mat, cudamat* target);
+int apply_floor(cudamat* mat, cudamat* target);
+int apply_sqrt(cudamat* mat, cudamat* target);
+int apply_pow(cudamat* mat, float pow, cudamat* target);
+int apply_pow_matrix(cudamat* mat, cudamat* pow, cudamat* target);
+int compute_cross_entropy(cudamat* mat, cudamat* pow, cudamat* target, float tiny);
+int compute_cross_entropy_bernoulli(cudamat* mat, cudamat* pow, cudamat* target, float tiny);
+int correct_preds(cudamat* mat, cudamat* pow, cudamat* target, float cutoff);
+int reciprocal(cudamat* mat, cudamat* target);
+int bessel_ratio_activation(cudamat* mat, cudamat* target);
+int bessel_ratio_activation_continued_fraction(cudamat* mat, cudamat* target, float order, int num_steps);
+int dot(cudamat* mat1, cudamat* mat2, cudamat* target, float beta, float alpha);
+int sparse_dot(cudamat_sparse* mat1, cudamat* mat2, cudamat* target, float beta, float alpha);
+float vdot(cudamat* mat1, cudamat* mat2, int* err_code);
+int add_mult(cudamat* mat1, cudamat* mat2, float alpha);
+int add_mult_sign(cudamat* mat1, cudamat* mat2, float mult);
+int add_elementwise(cudamat* mat1, cudamat* mat2, cudamat* target);
+int subtract_elementwise(cudamat* mat1, cudamat* mat2, cudamat* target);
+int divide_elementwise(cudamat* mat1, cudamat* mat2, cudamat* target);
+int mult_elementwise(cudamat* mat1, cudamat* mat2, cudamat* target, float scale_targets);
+int apply_sin_deriv(cudamat* mat1, cudamat* mat2, cudamat* target);
+int apply_cos_deriv(cudamat* mat1, cudamat* mat2, cudamat* target);
+int apply_logistic_deriv(cudamat* mat1, cudamat* mat2, cudamat* target);
+int apply_tanh_deriv(cudamat* mat1, cudamat* mat2, cudamat* target);
+int apply_rectified_linear_deriv(cudamat* mat1, cudamat* mat2, cudamat* target);
+int apply_rectified_linear_smooth_deriv(cudamat* mat1, cudamat* mat2, cudamat* target);
+int assign_scalar(cudamat* mat, float alpha);
+int mult_by_scalar(cudamat* mat, float alpha, cudamat* target, float scale_targets);
+int divide_by_scalar(cudamat* mat, float alpha, cudamat* target);
+int add_scalar(cudamat* mat, float alpha, cudamat* target);
+float euclid_norm(cudamat* mat, int* err_code);
+int selectRows(cudamat* source, cudamat* target, cudamat* indices);
+int swapColumns(cudamat* source, cudamat* target, cudamat* indices1, cudamat* indices2);
+int shuffleColumns(cudamat* source, cudamat* rand_perm_indices);
+int setSelectedRows(cudamat* target, cudamat* source, cudamat* indices);
+int generate_translations_big_var_off(cudamat* source, cudamat* target, cudamat* off_x, cudamat* off_y, int source_w, int target_w, int num_channels);
+int blockify(cudamat* source, cudamat* target, int blocksize);
+int softmax(cudamat* mat, cudamat* target); 
+int softmax_overwrite(cudamat* mat); 
+int softmax_row_major(cudamat* mat, cudamat* target); 
+int softmax_row_major_multi(cudamat* mat, int numslices, cudamat* target);
+int apply_logistic_grad(cudamat* mat1, cudamat* mat2, cudamat* out_grad);
+int apply_softmax_grad(cudamat* mat, cudamat* labels, cudamat* target); 
+int apply_softmax_grad_CLS(cudamat* mat, cudamat_bbox* labels, cudamat* indices, cudamat* target); 
+int apply_softmax_grad_row_major(cudamat* mat, cudamat* labels, cudamat* target); 
+int get_softmax_correct(cudamat* mat, cudamat* labels, cudamat* target); 
+int get_softmax_correct_row_major(cudamat* mat, cudamat* labels, cudamat* target); 
+int get_softmax_correct_CLS(cudamat* mat, cudamat_bbox* labels, cudamat* indices, cudamat* target); 
+int hinge_loss_row_major(cudamat* mat, cudamat* labels, cudamat* target, int quadratic, float margin);
+int accumulate_columns(cudamat* mat, cudamat* indices, cudamat* target, float mult, int avg); 
+int get_softmax_cross_entropy(cudamat* mat, cudamat* labels, cudamat* target, float tiny); 
+int get_softmax_cross_entropy_row_major(cudamat* mat, cudamat* labels, cudamat* target, float tiny); 
+int expand(cudamat* source, cudamat* indices, cudamat* target);
+int expand_and_add(cudamat* source, cudamat* mat, cudamat* indices, cudamat* target, float mult);
+int extract_patches(cudamat* images, cudamat* patches, cudamat* width_offset,
+                    cudamat* height_offset, cudamat* flip, int img_width,
+                    int img_height, int patch_width, int patch_height);
+int extract_patches_3(cudamat* images, cudamat* patches, cudamat* width_offset,
+                    cudamat* height_offset, cudamat* flip, int img_width,
+                    int img_height, int patch_width, int patch_height);
+int capsulify(cudamat* images, cudamat* output, int image_size, int crop_size);
+int rectify_bounding_boxes(cudamat* boxes, cudamat* width_offset,
+                           cudamat* height_offset, cudamat* flip,
+                           int patch_width, int patch_height);
+int adagrad(cudamat* history, cudamat* grad, float delta);
+int rms_prop(cudamat* history, cudamat* grad, float factor);
+int apply_grad_bbox(
+    cudamat* mat, cudamat_bbox* bbox, cudamat* indices, cudamat* width_offset,
+    cudamat* height_offset, cudamat* target, int width, int height, int depth,
+    float scale_width, float scale_height, int loss_function);
+int get_softmax_correct_row_major_bbox(
+    cudamat* mat, cudamat_bbox* bbox, cudamat* indices, cudamat* width_offset,
+    cudamat* height_offset, cudamat* target, int width, int height, int depth,
+    float scale_width, float scale_height);
+int get_logistic_correct_row_major_bbox(
+    cudamat* mat, cudamat_bbox* bbox, cudamat* indices, cudamat* width_offset,
+    cudamat* height_offset, cudamat* target, int width, int height, int depth,
+    float scale_width, float scale_height, float cutoff);
+int get_logistic_correct_normalized(cudamat* mat1, cudamat* mat2, cudamat* out);
+
+// LSTMs
+int lstm_fprop(cudamat* s_in, cudamat* s_out, cudamat* w_dense, cudamat* w_diag, cudamat* b, bool init, bool use_relu);
+int lstm_bprop(cudamat* s_in, cudamat* s_out, cudamat* d_in, cudamat* d_out, cudamat* w_dense, cudamat* w_diag, bool init, bool use_relu);
+int lstm_outp(cudamat* s_in, cudamat* s_out, cudamat* d_out, cudamat* dw_dense, cudamat* dw_diag, cudamat* db, bool init);
+
+// Batch Normalization
+
+int bn_bprop(cudamat* deriv, cudamat* input, cudamat* gamma, cudamat* mu,
+             cudamat* sigma, cudamat* target, float scale_targets);
+
+int bn_grad(cudamat* deriv, cudamat* input, cudamat* mu, cudamat* sigma,
+            cudamat* dgamma, cudamat* dbeta);
+int bn_bprop_inplace(cudamat* deriv, cudamat* act, cudamat* dgamma);
+
+// New LSTM kernels with data layout: cols = lstms, rows = batchsize, then timesteps.
+int lstm_fprop2(cudamat* gates, cudamat* cell_prev, cudamat* cell, cudamat* output, cudamat* w);
+int lstm_fprop2_init(cudamat* gates, cudamat* cell, cudamat* output, cudamat* w);
+int lstm_bprop2(cudamat* gates, cudamat* gates_deriv, cudamat* cell_prev, cudamat* cell_prev_deriv,
+                cudamat* cell, cudamat* cell_deriv, cudamat* output_deriv, cudamat* w);
+int lstm_bprop2_init(cudamat* gates, cudamat* gates_deriv,
+                cudamat* cell, cudamat* cell_deriv, cudamat* output_deriv, cudamat* w);
+int lstm_outp2_init(cudamat* gates_deriv, cudamat* cell, cudamat* dw);
+int lstm_outp2(cudamat* gates_deriv, cudamat* prev_cell, cudamat* cell, cudamat* dw);
+int capsule_activation(cudamat* h_in, cudamat* h_out, cudamat* length, cudamat* bessel_ratio);
+int capsule_derivative_of_activation(cudamat* d_out, cudamat* h_out, cudamat* length, cudamat* bessel_ratio, cudamat* d_in, float sparsity_cost, float sparsity_scale);
+
+// Spatial LSTM kernels
+int lstm_fprop_spatial_init(cudamat* gates, cudamat* cell, cudamat* output, cudamat* w);
+int lstm_fprop_spatial_row_init(cudamat* gates, cudamat* cell_prev_row, cudamat* cell, cudamat* output, cudamat* w);
+int lstm_fprop_spatial_col_init(cudamat* gates, cudamat* cell_prev_col, cudamat* cell, cudamat* output, cudamat* w);
+int lstm_fprop_spatial(cudamat* gates, cudamat* cell_prev_row, cudamat* cell_prev_col, cudamat* cell, cudamat* output, cudamat* w);
+int lstm_bprop_spatial_init(cudamat* gates, cudamat* gates_deriv,
+                     cudamat* cell, cudamat* cell_deriv, cudamat* output_deriv, cudamat* w);
+int lstm_bprop_spatial_row_init(cudamat* gates, cudamat* gates_deriv, cudamat* cell_prev_row, cudamat* cell_prev_row_deriv,
+                     cudamat* cell, cudamat* cell_deriv, cudamat* output_deriv, cudamat* w);
+int lstm_bprop_spatial_col_init(cudamat* gates, cudamat* gates_deriv, cudamat* cell_prev_col, cudamat* cell_prev_col_deriv,
+                     cudamat* cell, cudamat* cell_deriv, cudamat* output_deriv, cudamat* w);
+int lstm_bprop_spatial(cudamat* gates, cudamat* gates_deriv, cudamat* cell_prev_row, cudamat* cell_prev_row_deriv, cudamat* cell_prev_col,
+                cudamat* cell_prev_col_deriv, cudamat* cell, cudamat* cell_deriv, cudamat* output_deriv, cudamat* w);
+int lstm_outp_spatial_init(cudamat* gates_deriv, cudamat* cell, cudamat* dw);
+int lstm_outp_spatial_row_init(cudamat* gates_deriv, cudamat* prev_cell_row, cudamat* cell, cudamat* dw);
+int lstm_outp_spatial_col_init(cudamat* gates_deriv, cudamat* prev_cell_col, cudamat* cell, cudamat* dw);
+int lstm_outp_spatial(cudamat* gates_deriv, cudamat* prev_cell_row, cudamat* prev_cell_col, cudamat* cell, cudamat* dw);
+int get_glimpses_matrix_scan(cudamat* F_x, cudamat* F_y, int start_row, int start_col, int patch_side, int image_side, int num_cases);
+int get_glimpses_matrix_scan_mr(cudamat* F_x, cudamat* F_y, int start_row, int start_col, int patch_side, int image_side, int num_cases);
+int get_glimpses_matrix_scan_mr3(cudamat* F_x, cudamat* F_y, int start_row, int start_col, int patch_side, int image_side, int num_cases);
+
+// Attention kernels
+int get_glimpses_matrix(cudamat* F_x, cudamat* F_y, cudamat* para, int patch_side, int image_side);
+int get_glimpses_matrix_laplace(cudamat* F_x, cudamat* F_y, cudamat* para, int patch_side, int image_side);
+int normalize_glmatrix(cudamat* F_x, cudamat* F_y, int patch_side, int image_side);
+int apply_glmatrix(cudamat* patches, cudamat* F_axis, cudamat* para, cudamat* input_frame, int patch_side, int image_side);
+int apply_glmatrix_hat(cudamat* patches, cudamat* F_axis, cudamat* para, cudamat* input_frame, int patch_side, int image_side);
+int get_sampling_grid(cudamat* grid_x, cudamat* grid_y, cudamat* para, int patch_side, int image_side);
+int get_atten_grid(cudamat* grid_x, cudamat* grid_y, cudamat* para, int patch_side, int image_side);
+int get_atten_grid_trans(cudamat* grid_x, cudamat* grid_y, cudamat* para, int patch_side, int image_side);
+int apply_sampling_grid(cudamat* patches, cudamat* grid_x, cudamat* grid_y, cudamat* input_frame, int patch_side, int image_side);
+int apply_sampling_grid_feat(cudamat* patches, cudamat* grid_x, cudamat* grid_y, cudamat* input_map, int patch_side, int map_side);
+int get_grid_derive_feat(cudamat* grid_x_deriv, cudamat* grid_y_deriv, cudamat* patch_deriv, cudamat* grid_x, cudamat* grid_y, cudamat* input_map, int patch_side, int map_side);
+int get_grid_and_feat_derive(cudamat* grid_x_deriv, cudamat* grid_y_deriv, cudamat* feat_deriv, cudamat* patch_deriv, cudamat* grid_x, cudamat* grid_y, cudamat* input_map, int patch_side, int map_side);
+int get_grid_derive(cudamat* grid_x_deriv, cudamat* grid_y_deriv, cudamat* patch_deriv, cudamat* grid_x, cudamat* grid_y, cudamat* input_frame, int patch_side, int image_side);
+int get_para_affine_derive(cudamat* para_affine_deriv, cudamat* grid_x_deriv, cudamat* grid_y_deriv, int patch_side, int image_side);
+int get_para_atten_derive(cudamat* para_affine_deriv, cudamat* grid_x_deriv, cudamat* grid_y_deriv, int patch_side, int image_side);
+int get_para_atten_trans_derive(cudamat* para_affine_deriv, cudamat* grid_x_deriv, cudamat* grid_y_deriv, int patch_side, int image_side);
+int sum_para_derive(cudamat* para_deriv, cudamat* para_grid_deriv, int patch_side);
+int dis_para_derive(cudamat* para_grid_deriv, cudamat* para_deriv, int patch_side);
+int get_para0123_derive(cudamat* para_xy_deriv, cudamat* F_x, cudamat* F_y, cudamat* para, int patch_side, int image_side);
+int get_para0123_derive_laplace(cudamat* para_xy_deriv, cudamat* F_x, cudamat* F_y, cudamat* para, int patch_side, int image_side);
+int get_output_patch_derive(cudamat* output_patch_deriv, cudamat* output_deriv, cudamat* F_x_hat, cudamat* F_y_hat, cudamat* para, int patch_side, int image_side);
+#ifdef __cplusplus
+}
+#endif
+#endif
